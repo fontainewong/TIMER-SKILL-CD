@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap');
+
+:root { font-family: 'Noto Sans TC', system-ui, sans-serif; color: #e9efec; background: #101b20; font-synthesis: none; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(ellipse at 80% 0%, #223537 0, transparent 55%), #101b20; }
+button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+button:focus-visible { outline: 3px solid #e6bb77; outline-offset: 3px; }
+button:disabled { cursor: default; }
+.tracker { max-width: 480px; margin: auto; height: 100svh; min-height: 560px; padding: max(18px, env(safe-area-inset-top)) 20px max(12px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.eyebrow { margin: 0 0 6px; font-size: 9px; letter-spacing: 1.8px; color: #94aba7; }
+h1 { font-size: 21px; letter-spacing: 2px; margin: 0; font-weight: 600; }
+.edition { font-size: 10px; border: 1px solid #425657; border-radius: 20px; padding: 6px 9px; white-space: nowrap; color: #abc2b8; }
+.match-clock { text-align: center; padding: 16px 20px; border: 1px solid #425652; border-radius: 20px; background: linear-gradient(135deg, #263b38aa, #1a2a2caa); }
+.clock-label { display: flex; align-items: center; justify-content: center; gap: 8px; color: #a4b6b1; font-size: 11px; letter-spacing: 2px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: #708681; }
+.running .dot { background: #b5d8a9; box-shadow: 0 0 10px #b5d8a960; }
+.timer { font: 500 clamp(46px, 7svh, 68px)/1.2 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: 4px; padding: 8px 0 12px; font-variant-numeric: tabular-nums; }
+.primary, .secondary { min-height: 44px; border-radius: 12px; padding: 10px 16px; font-size: 13px; font-weight: 600; }
+.primary { background: #c7dcb6; border: 1px solid #c7dcb6; color: #192922; }
+#start { width: 100%; }
+#start:disabled { background: transparent; color: #9cb2a7; border-color: #435951; }
+.secondary { background: #1a292d; color: #bfcfca; border: 1px solid #3b4f50; }
+.secondary:disabled { color: #758781; border-color: #2c3d40; }
+.section-label { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #c1cec8; }
+.section-label span:last-child { color: #91a49e; font-size: 10px; }
+.skills { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.skill { position: relative; overflow: hidden; text-align: left; display: flex; flex-direction: column; justify-content: space-between; gap: 4px; padding: 12px 15px; border-radius: 16px; border: 1px solid #3c4e51; background: #19272d; color: #bec9c9; isolation: isolate; }
+.skill > :not(.water) { position: relative; z-index: 1; }
+.water { position: absolute; bottom: 0; left: 0; width: 100%; height: var(--water); background: color-mix(in srgb, var(--accent) 12%, transparent); transition: height .2s linear; z-index: 0; }
+.water::before { content: ''; position: absolute; top: -5px; left: -50%; width: 200%; height: 12px; border-radius: 45%; border-top: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); background: color-mix(in srgb, var(--accent) 9%, transparent); animation: wave 4s ease-in-out infinite alternate; }
+@keyframes wave { from { transform: translateX(-8%) rotate(-2deg); } to { transform: translateX(8%) rotate(2deg); } }
+.card-top { display: flex; align-items: center; justify-content: space-between; }
+.symbol { font: 26px/1 Georgia, serif; color: var(--accent); }
+.availability { font-size: 9px; letter-spacing: 1px; color: #a4b0b3; }
+.skill-name { font-size: 17px; font-weight: 600; letter-spacing: 2px; }
+.countdown { font: 500 23px/1.1 ui-monospace, SFMono-Regular, Consolas, monospace; font-variant-numeric: tabular-nums; }
+.card-note { font-size: 10px; color: #98aca8; }
+.skill.ready { border-color: color-mix(in srgb, var(--accent) 65%, #263d3d); background: #233736; color: #edf3e8; }
+.ready .availability, .ready .countdown { color: var(--accent); }
+.ready .countdown { font-size: 20px; letter-spacing: 2px; }
+.controls { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+.notice { text-align: center; margin: -5px 0 0; color: #91a69e; font-size: 10px; min-height: 15px; }
+.sheet { width: min(100%, 480px); max-height: 85svh; overflow: auto; position: fixed; inset: auto 0 0; margin: 0 auto; border: 1px solid #52625c; border-bottom: 0; border-radius: 26px 26px 0 0; padding: 12px 24px max(24px, env(safe-area-inset-bottom)); background: #1a2b2d; color: #e9efec; box-shadow: 0 -20px 80px #0004; }
+.sheet::backdrop { background: #060f13bb; }
+#details { max-height: max(0px, calc(100dvh - var(--clock-bottom, 280px))); }
+#details::backdrop { background: transparent; }
+.change-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; margin-bottom: 12px; }
+.change-actions select { min-height: 44px; padding: 10px; border: 1px solid #3b4f50; border-radius: 12px; background: #111f23; color: #e9efec; font: inherit; }
+.sheet-handle { width: 36px; height: 4px; margin: 0 auto 24px; background: #63756e; border-radius: 4px; }
+.sheet-heading { display: flex; align-items: center; justify-content: space-between; }
+h2 { margin: 0; font-size: 24px; font-weight: 600; }
+.close { width: 44px; height: 44px; font-size: 28px; color: #d2ded6; border-radius: 50%; border: 1px solid #53655c; background: transparent; }
+.timestamps { display: grid; grid-template-columns: 1fr 1fr; margin: 24px 0; gap: 12px; }
+.timestamps div { background: #111f23; border: 1px solid #3b4f50; border-radius: 14px; padding: 16px; }
+.timestamps span { display: block; font-size: 12px; color: #a1b3a9; margin-bottom: 10px; }
+.timestamps strong { font: 500 30px ui-monospace, monospace; }
+.sheet-note { font-size: 13px; color: #a6b8b0; line-height: 1.7; margin: 18px 0; }
+.full { width: 100%; }
+.reset-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-height: 740px) { .tracker { gap: 10px; padding-top: max(10px, env(safe-area-inset-top)); } .match-clock { padding: 10px 16px; } .timer { font-size: 44px; padding: 5px 0 8px; } .skill { padding: 9px 12px; gap: 2px; } .symbol { font-size: 21px; } .skill-name { font-size: 16px; } .countdown { font-size: 20px; } }
+@media (prefers-reduced-motion: reduce) { .water { transition: none; } .water::before { animation: none; } }
