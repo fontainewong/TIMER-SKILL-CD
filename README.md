@@ -12,3 +12,5 @@ npm run dev
 ```
 
 Built with TypeScript and Vite.
+
+https://timer-skill-cd.vercel.app/
