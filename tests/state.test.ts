@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { activateSkill, changeLastActivation, cooldownStatus, createMatch, parseSavedMatch, undoActivation } from '../src/state.ts';
 import { elapsedMs, formatTime } from '../src/timer.ts';
 import { ChangeMode } from '../src/change-mode.ts';
-import { tapSkill, canCorrectUsage } from '../src/card-interaction.ts';
+import { tapSkill, canCorrectUsage, isSkillLocked } from '../src/card-interaction.ts';
 import { popupBounds } from '../src/popup-layout.ts';
 
 test('initial availability respects all six configured timings', () => {
@@ -232,12 +232,13 @@ test('older cooling records reopen safely; initial cooldowns have no activation 
   state.startedAt = 1_000;
   assert.equal(tapSkill(state, 'blink', 31_000), null);
   tapSkill(state, 'blink', 61_000);
-  tapSkill(state, 'warp', 71_000);
+  activateSkill(state, 'warp', 71_000); // Historical saved match with multiple skills.
   const before = structuredClone(state);
-  const older = tapSkill(state, 'blink', 73_000)!;
-  assert.equal(older.usage.usedAt, 60);
-  assert.equal(canCorrectUsage(state, older.usage), false);
-  assert.equal(new ChangeMode().begin(state, older.usage), false);
+  const older = state.usages[0];
+  assert.equal(tapSkill(state, 'blink', 73_000), null);
+  assert.equal(older.usedAt, 60);
+  assert.equal(canCorrectUsage(state, older), false);
+  assert.equal(new ChangeMode().begin(state, older), false);
   assert.deepEqual(state, before);
 });
 
@@ -256,4 +257,42 @@ test('mobile popup geometry covers only rows two and three inside the grid', () 
     assert.ok(bounds.height >= 240); // Compact popup controls fit at these mobile sizes.
     assert.ok(bounds.left + bounds.width <= viewportWidth);
   }
+});
+
+test('selection locks other cards across cooldown expiry and refresh, and undo unlocks them', () => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  tapSkill(state, 'blink', 61_000);
+  const before = structuredClone(state);
+  assert.equal(isSkillLocked(state, 'blink'), false);
+  for (const now of [71_000, 301_000]) {
+    assert.equal(isSkillLocked(state, 'warp'), true);
+    assert.equal(tapSkill(state, 'warp', now), null);
+    assert.deepEqual(state, before);
+  }
+  const restored = parseSavedMatch(JSON.stringify({ version: 1, state }), 301_000);
+  assert.equal(isSkillLocked(restored, 'warp'), true);
+  undoActivation(state);
+  assert.equal(isSkillLocked(state, 'warp'), false);
+  assert.equal(tapSkill(state, 'warp', 73_000)!.recorded, true);
+  assert.equal(isSkillLocked(createMatch(), 'warp'), false);
+});
+
+test('popup Change Mode can replace the locked selection; cancel keeps the original', () => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  tapSkill(state, 'blink', 61_000);
+  const before = structuredClone(state);
+  const mode = new ChangeMode();
+  mode.begin(state);
+  assert.equal(mode.canSelect(state, 'warp'), true);
+  mode.cancel();
+  assert.deepEqual(state, before);
+  assert.equal(isSkillLocked(state, 'warp'), true);
+  mode.begin(state);
+  assert.deepEqual(mode.select(state, 'warp'), { skillId: 'warp', usedAt: 60, readyAt: 160 });
+  assert.equal(isSkillLocked(state, 'warp'), false);
+  assert.equal(isSkillLocked(state, 'blink'), true);
+  assert.equal(tapSkill(state, 'warp', 73_000)!.recorded, false);
+  assert.equal(tapSkill(state, 'blink', 73_000), null);
 });

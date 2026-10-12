@@ -1,7 +1,7 @@
 import './styles.css';
 import { SKILLS, skillById, type SkillId } from './skills.ts';
 import { cooldownStatus, createMatch, parseSavedMatch, undoActivation, type Usage } from './state.ts';
-import { tapSkill, canCorrectUsage } from './card-interaction.ts';
+import { tapSkill, canCorrectUsage, isSkillLocked } from './card-interaction.ts';
 import { popupBounds } from './popup-layout.ts';
 import { ChangeMode } from './change-mode.ts';
 import { elapsedMs, formatTime } from './timer.ts';
@@ -17,7 +17,7 @@ app.innerHTML = `
   <main class="tracker">
     <section class="match-clock" aria-label="比賽計時">
       <div id="timer" class="timer" role="timer" aria-label="比賽經過時間" hidden>00:00</div>
-      <button id="start" class="primary">開始比賽</button>
+      <button id="start" class="secondary">開始</button>
     </section>
     <div id="change-banner" class="change-banner" hidden><span id="change-hint" role="status"></span><button id="cancel-change" class="secondary">取消更變</button></div>
     <section id="skills" class="skills" aria-label="六個輔助技能"></section>
@@ -28,7 +28,7 @@ app.innerHTML = `
     <div class="sheet-heading"><h2 id="detail-title"></h2><button id="close-detail" class="close" aria-label="關閉技能詳情" autofocus>×</button></div>
     <div class="timestamps"><div><span>使用時間</span><strong id="used-at"></strong></div><div><span>下次可用</span><strong id="ready-at"></strong></div></div>
     <p id="correction-note" class="correction-note" hidden>只能更變或撤銷最近一次使用。</p>
-    <div class="detail-actions"><button id="change-activation" class="primary">更變技能</button><button id="detail-undo" class="secondary">撤銷使用</button></div>
+    <div class="detail-actions"><button id="change-activation" class="secondary">更變技能</button><button id="detail-undo" class="secondary">撤銷使用</button></div>
   </dialog>
   <dialog id="reset-dialog" class="sheet" aria-labelledby="reset-title">
     <h2 id="reset-title">重設這場比賽？</h2>
@@ -78,8 +78,10 @@ function render() {
     if (grid.children[position] !== card) grid.insertBefore(card, grid.children[position] ?? null);
     const status = cooldownStatus(state, id, now);
     const selectable = changeMode.active && changeMode.canSelect(state, id);
-    card.disabled = changeMode.active ? !selectable : !running;
-    card.classList.toggle('ready', status.available && !changeMode.active);
+    const locked = !changeMode.active && isSkillLocked(state, id);
+    card.disabled = changeMode.active ? !selectable : !running || locked;
+    card.classList.toggle('ready', status.available && !changeMode.active && !locked);
+    card.classList.toggle('locked', locked);
     card.classList.toggle('change-option', selectable);
     card.classList.toggle('waiting', !running);
     card.classList.toggle('cooling', running && !status.available);
