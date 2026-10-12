@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { activateSkill, changeLastActivation, cooldownStatus, createMatch, parseSavedMatch, undoActivation } from '../src/state.ts';
 import { elapsedMs, formatTime } from '../src/timer.ts';
+import { ChangeMode } from '../src/change-mode.ts';
+import { tapSkill, canCorrectUsage } from '../src/card-interaction.ts';
+import { popupBounds } from '../src/popup-layout.ts';
 
 test('initial availability respects all six configured timings', () => {
   const state = createMatch();
@@ -126,4 +129,131 @@ test('change rejects a skill unavailable at the original timestamp without mutat
   const withCoolingWarp = structuredClone(state);
   assert.equal(changeLastActivation(state, 'warp'), null);
   assert.deepEqual(state, withCoolingWarp);
+});
+
+test('Change Mode begins at 01:10 and replaces from the grid at 01:12 using 01:00', context => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  activateSkill(state, 'blink', 61_000);
+  const original = structuredClone(state);
+  const mode = new ChangeMode();
+  context.mock.method(Date, 'now', () => 71_000);
+  assert.equal(mode.begin(state), true);
+  assert.equal(mode.active, true);
+  assert.equal(mode.usedAt, 60);
+  assert.deepEqual(state, original);
+  assert.equal(mode.canSelect(state, 'blink'), true);
+  assert.equal(mode.canSelect(state, 'warp'), true);
+  context.mock.method(Date, 'now', () => 73_000);
+  assert.deepEqual(mode.select(state, 'warp'), { skillId: 'warp', usedAt: 60, readyAt: 160 });
+  assert.equal(mode.active, false);
+  assert.equal(state.usages.length, 1);
+  assert.equal(cooldownStatus(state, 'warp').remaining, 88);
+  assert.equal(cooldownStatus(state, 'blink').available, true);
+  assert.deepEqual(state.order, ['warp', 'blink', 'excitement', 'patroller', 'abnormal', 'teleport']);
+  undoActivation(state);
+  assert.deepEqual(state.usages, []);
+});
+
+test('cancelling Change Mode preserves the original event, cooldowns, order and undo', () => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  activateSkill(state, 'patroller', 31_000);
+  const original = structuredClone(state);
+  const mode = new ChangeMode();
+  mode.begin(state);
+  assert.equal(mode.canSelect(state, 'warp'), false);
+  assert.equal(mode.select(state, 'warp'), null);
+  assert.equal(mode.active, true);
+  mode.cancel();
+  assert.equal(mode.active, false);
+  assert.equal(mode.select(state, 'patroller'), null);
+  assert.deepEqual(state, original);
+});
+
+test('Change Mode cannot correct a different event after the original event changes', () => {
+  const state = createMatch();
+  const mode = new ChangeMode();
+  assert.equal(mode.begin(state), false);
+  state.startedAt = 1_000;
+  activateSkill(state, 'blink', 61_000);
+  mode.begin(state);
+  activateSkill(state, 'teleport', 71_000);
+  const current = structuredClone(state);
+  assert.equal(mode.select(state, 'warp'), null);
+  assert.deepEqual(state, current);
+  mode.cancel();
+});
+
+test('tapping a cooling card reopens its event without changing timestamps, cooldown, order or undo', () => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  const activation = tapSkill(state, 'blink', 61_000)!;
+  assert.equal(activation.recorded, true);
+  const before = structuredClone(state);
+  for (const now of [71_000, 73_000, 100_000]) {
+    const reopened = tapSkill(state, 'blink', now)!;
+    assert.equal(reopened.recorded, false);
+    assert.equal(reopened.usage, activation.usage);
+    assert.deepEqual(state, before);
+  }
+  assert.equal(cooldownStatus(state, 'blink', 73_000).remaining, 138);
+  const next = tapSkill(state, 'blink', 211_000)!;
+  assert.equal(next.recorded, true);
+  assert.equal(next.usage.usedAt, 210);
+  assert.equal(state.usages.length, 2);
+});
+
+test('Change Mode and Undo after reopening target the original latest activation', () => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  tapSkill(state, 'blink', 61_000);
+  const reopened = tapSkill(state, 'blink', 71_000)!;
+  assert.equal(canCorrectUsage(state, reopened.usage), true);
+  const mode = new ChangeMode();
+  assert.equal(mode.begin(state, reopened.usage), true);
+  assert.deepEqual(mode.select(state, 'warp'), { skillId: 'warp', usedAt: 60, readyAt: 160 });
+  const correctedPopup = tapSkill(state, 'warp', 73_000)!;
+  assert.equal(correctedPopup.recorded, false);
+  assert.equal(canCorrectUsage(state, correctedPopup.usage), true);
+  assert.equal(undoActivation(state), true);
+  assert.deepEqual(state.usages, []);
+  assert.deepEqual(state.order, createMatch().order);
+
+  tapSkill(state, 'blink', 81_000);
+  const undoPopup = tapSkill(state, 'blink', 91_000)!;
+  assert.equal(canCorrectUsage(state, undoPopup.usage), true);
+  assert.equal(undoActivation(state), true);
+  assert.deepEqual(state.usages, []);
+});
+
+test('older cooling records reopen safely; initial cooldowns have no activation to reopen', () => {
+  const state = createMatch();
+  state.startedAt = 1_000;
+  assert.equal(tapSkill(state, 'blink', 31_000), null);
+  tapSkill(state, 'blink', 61_000);
+  tapSkill(state, 'warp', 71_000);
+  const before = structuredClone(state);
+  const older = tapSkill(state, 'blink', 73_000)!;
+  assert.equal(older.usage.usedAt, 60);
+  assert.equal(canCorrectUsage(state, older.usage), false);
+  assert.equal(new ChangeMode().begin(state, older.usage), false);
+  assert.deepEqual(state, before);
+});
+
+test('mobile popup geometry covers only rows two and three inside the grid', () => {
+  for (const [viewportWidth, viewportHeight] of [[440, 956], [440, 760], [390, 664], [375, 600]]) {
+    const left = 16;
+    const top = viewportHeight <= 680 ? 76 : 96;
+    const bottom = viewportHeight - 68;
+    const rowHeight = (bottom - top - 20) / 3;
+    const secondRowTop = top + rowHeight + 10;
+    const bounds = popupBounds({ left, top, width: viewportWidth - 32, bottom }, secondRowTop);
+    assert.equal(bounds.top, secondRowTop);
+    assert.equal(bounds.top + bounds.height, bottom);
+    assert.equal(bounds.width, viewportWidth - 32);
+    assert.ok(bounds.top > top + rowHeight); // Upper cards and timer remain uncovered.
+    assert.ok(bounds.height >= 240); // Compact popup controls fit at these mobile sizes.
+    assert.ok(bounds.left + bounds.width <= viewportWidth);
+  }
 });
