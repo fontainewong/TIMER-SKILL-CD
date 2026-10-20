@@ -1,8 +1,8 @@
-# IDV Cooldown Tracker
+# Cooldown Tracker
 
-A simple cooldown tracker for hunter traits in Identity V.
+A simple cooldown tracker for hunter traits in idv.
 
-Made for personal use during ranked matches.
+Made for personal use during ranks.
 
 ## Run locally
 
@@ -12,5 +12,7 @@ npm run dev
 ```
 
 Built with TypeScript and Vite.
+
+呃呃第五人格啓動
 
 https://timer-skill-cd.vercel.app/
